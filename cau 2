@@ -1,0 +1,337 @@
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+
+# ---------- Các hàm xử lý ----------
+def them_sach(danh_sach, ma, ten, gia, soluong):
+    danh_sach.append({
+        "ma": ma,
+        "ten": ten,
+        "gia": gia,
+        "soluong": soluong
+    })
+
+
+def tim_kiem_theo_ten(danh_sach, tu_khoa):
+    tu_khoa = tu_khoa.strip().lower()
+
+    if not tu_khoa:
+        return []
+
+    return [
+        s for s in danh_sach
+        if tu_khoa in s["ten"].lower()
+    ]
+
+
+def dinh_dang(s):
+    return (
+        f"{s['ma']} - {s['ten']} - "
+        f"{s['gia']:,}đ - SL: {s['soluong']}"
+    )
+
+
+# ---------- Giao diện ----------
+class UngDungQuanLySach(tk.Tk):
+
+    def __init__(self):
+        super().__init__()
+
+        self.title("Quản lý sách thư viện")
+        self.geometry("620x520")
+        self.minsize(560, 480)
+
+        self.danh_sach = []
+
+        # Dữ liệu mẫu
+        them_sach(
+            self.danh_sach,
+            "S001", "Lập trình Python cơ bản", 95000, 40
+        )
+        them_sach(
+            self.danh_sach,
+            "S002", "Cấu trúc dữ liệu và giải thuật", 120000, 6
+        )
+        them_sach(
+            self.danh_sach,
+            "S003", "Nhập môn trí tuệ nhân tạo", 150000, 25
+        )
+
+        self.tao_giao_dien()
+        self.hien_thi(self.danh_sach)
+
+    # ---------- Tạo giao diện ----------
+    def tao_giao_dien(self):
+
+        # Form nhập thông tin
+        frm_nhap = ttk.LabelFrame(
+            self, text="Thông tin sách", padding=10
+        )
+        frm_nhap.pack(
+            fill="x", padx=10, pady=(10, 5)
+        )
+
+        frm_nhap.columnconfigure(1, weight=1)
+
+        self.var_ma = tk.StringVar()
+        self.var_ten = tk.StringVar()
+        self.var_gia = tk.StringVar()
+        self.var_sl = tk.StringVar()
+
+        cac_truong = [
+            ("Mã sách:", self.var_ma),
+            ("Tên sách:", self.var_ten),
+            ("Giá (đ):", self.var_gia),
+            ("Số lượng:", self.var_sl)
+        ]
+
+        for i, (nhan, var) in enumerate(cac_truong):
+
+            ttk.Label(
+                frm_nhap, text=nhan
+            ).grid(
+                row=i, column=0,
+                sticky="w", padx=(0, 10), pady=4
+            )
+
+            ttk.Entry(
+                frm_nhap, textvariable=var
+            ).grid(
+                row=i, column=1,
+                sticky="ew", pady=4
+            )
+
+        frm_nut = ttk.Frame(frm_nhap)
+
+        frm_nut.grid(
+            row=4, column=0,
+            columnspan=2, pady=(8, 0)
+        )
+
+        ttk.Button(
+            frm_nut,
+            text="Thêm sách",
+            command=self.them_sach_click
+        ).pack(side="left", padx=5)
+
+        ttk.Button(
+            frm_nut,
+            text="Xóa form",
+            command=self.xoa_form
+        ).pack(side="left", padx=5)
+
+        # Tìm kiếm
+        frm_tim = ttk.LabelFrame(
+            self, text="Tìm kiếm theo tên", padding=10
+        )
+        frm_tim.pack(
+            fill="x", padx=10, pady=5
+        )
+
+        frm_tim.columnconfigure(0, weight=1)
+
+        self.var_tim = tk.StringVar()
+
+        o_tim = ttk.Entry(
+            frm_tim, textvariable=self.var_tim
+        )
+
+        o_tim.grid(
+            row=0, column=0,
+            sticky="ew", padx=(0, 8)
+        )
+
+        o_tim.bind(
+            "<Return>",
+            lambda e: self.tim_kiem_click()
+        )
+
+        ttk.Button(
+            frm_tim,
+            text="Tìm kiếm",
+            command=self.tim_kiem_click
+        ).grid(row=0, column=1, padx=2)
+
+        ttk.Button(
+            frm_tim,
+            text="Hiện tất cả",
+            command=self.hien_tat_ca
+        ).grid(row=0, column=2, padx=2)
+
+        # Danh sách sách
+        frm_ds = ttk.LabelFrame(
+            self, text="Danh sách sách", padding=10
+        )
+
+        frm_ds.pack(
+            fill="both", expand=True,
+            padx=10, pady=(5, 10)
+        )
+
+        frm_ds.rowconfigure(0, weight=1)
+        frm_ds.columnconfigure(0, weight=1)
+
+        self.lst = tk.Listbox(
+            frm_ds,
+            font=("Segoe UI", 10),
+            activestyle="none"
+        )
+
+        self.lst.grid(
+            row=0, column=0, sticky="nsew"
+        )
+
+        scroll = ttk.Scrollbar(
+            frm_ds,
+            orient="vertical",
+            command=self.lst.yview
+        )
+
+        scroll.grid(row=0, column=1, sticky="ns")
+
+        self.lst.config(
+            yscrollcommand=scroll.set
+        )
+
+        self.lbl_trang_thai = ttk.Label(
+            frm_ds, text=""
+        )
+
+        self.lbl_trang_thai.grid(
+            row=1, column=0,
+            columnspan=2,
+            sticky="w", pady=(6, 0)
+        )
+
+    # ---------- Hiển thị danh sách ----------
+    def hien_thi(self, ds):
+
+        self.lst.delete(0, tk.END)
+
+        for s in ds:
+            self.lst.insert(
+                tk.END, dinh_dang(s)
+            )
+
+        self.lbl_trang_thai.config(
+            text=f"Số sách hiển thị: {len(ds)}"
+        )
+
+    # ---------- Xóa form ----------
+    def xoa_form(self):
+
+        self.var_ma.set("")
+        self.var_ten.set("")
+        self.var_gia.set("")
+        self.var_sl.set("")
+
+    # ---------- Thêm sách ----------
+    def them_sach_click(self):
+
+        ma = self.var_ma.get().strip()
+        ten = self.var_ten.get().strip()
+        gia_str = self.var_gia.get().strip()
+        sl_str = self.var_sl.get().strip()
+
+        # Kiểm tra mã và tên
+        if not ma or not ten:
+            messagebox.showerror(
+                "Lỗi",
+                "Mã sách và tên sách không được để trống!"
+            )
+            return
+
+        # Kiểm tra giá
+        try:
+            gia = int(gia_str)
+
+            if gia < 0:
+                raise ValueError
+
+        except ValueError:
+            messagebox.showerror(
+                "Lỗi",
+                "Giá phải là số nguyên không âm!"
+            )
+            return
+
+        # Kiểm tra số lượng
+        try:
+            soluong = int(sl_str)
+
+            if soluong < 0:
+                raise ValueError
+
+        except ValueError:
+            messagebox.showerror(
+                "Lỗi",
+                "Số lượng phải là số nguyên không âm!"
+            )
+            return
+
+        # Kiểm tra mã sách trùng
+        for s in self.danh_sach:
+            if s["ma"].lower() == ma.lower():
+                messagebox.showerror(
+                    "Lỗi",
+                    "Mã sách đã tồn tại!"
+                )
+                return
+
+        # Thêm sách vào danh sách
+        them_sach(
+            self.danh_sach,
+            ma, ten, gia, soluong
+        )
+
+        # Cập nhật giao diện
+        self.var_tim.set("")
+        self.hien_thi(self.danh_sach)
+
+        self.lst.see(tk.END)
+        self.lst.selection_clear(0, tk.END)
+        self.lst.selection_set(tk.END)
+
+        self.xoa_form()
+
+        messagebox.showinfo(
+            "Thông báo",
+            "Thêm sách thành công!"
+        )
+
+    # ---------- Tìm kiếm ----------
+    def tim_kiem_click(self):
+
+        tu_khoa = self.var_tim.get()
+
+        if not tu_khoa.strip():
+            messagebox.showwarning(
+                "Thông báo",
+                "Vui lòng nhập tên sách cần tìm!"
+            )
+            return
+
+        ket_qua = tim_kiem_theo_ten(
+            self.danh_sach,
+            tu_khoa
+        )
+
+        self.hien_thi(ket_qua)
+
+        if not ket_qua:
+            self.lbl_trang_thai.config(
+                text="Không tìm thấy sách nào phù hợp."
+            )
+
+    # ---------- Hiện tất cả ----------
+    def hien_tat_ca(self):
+
+        self.var_tim.set("")
+        self.hien_thi(self.danh_sach)
+
+
+# ---------- Chạy chương trình ----------
+if __name__ == "__main__":
+    app = UngDungQuanLySach()
+    app.mainloop()
